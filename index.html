@@ -286,19 +286,6 @@
             color: var(--error);
         }
 
-        .qr-display {
-            text-align: center;
-            margin: 15px 0;
-            padding: 12px;
-            background: rgba(252, 252, 249, 0.8);
-            border-radius: 6px;
-        }
-
-        .qr-display canvas {
-            max-width: 130px;
-            height: auto;
-        }
-
         .emp-actions {
             display: flex;
             gap: 8px;
@@ -621,6 +608,9 @@
     </div>
 
     <script>
+        // ⭐ GOOGLE APPS SCRIPT URL - PASTE YOUR DEPLOYMENT URL HERE (Line 1017)
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/https://docs.google.com/spreadsheets/d/1qHW4_qMRMOuzEMra0kM-g4zhcLN1swiAfCfzXpetPsA/edit?gid=1865407831#gid=1865407831/usercopy';
+
         let ADMIN_PASS = localStorage.getItem('adminPassword') || 'admin123';
         let currentUser = null;
 
@@ -634,6 +624,28 @@
         function saveData(emp, att) {
             localStorage.setItem('employees', JSON.stringify(emp));
             localStorage.setItem('attendance', JSON.stringify(att));
+            syncToGoogleSheet(att);
+        }
+
+        // ✅ GOOGLE SHEET SYNC FUNCTION
+        function syncToGoogleSheet(attendance) {
+            if (GOOGLE_APPS_SCRIPT_URL.includes('AKfycbx...')) {
+                console.warn('⚠️ Google Apps Script URL not configured');
+                return;
+            }
+
+            const recentAttendance = attendance.slice(-1);
+            
+            fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'syncAttendance',
+                    attendance: recentAttendance
+                })
+            })
+            .then(r => r.json())
+            .then(d => console.log('✓ Synced:', d))
+            .catch(e => console.error('❌ Error:', e));
         }
 
         function getStoredAdminPass() {
@@ -677,7 +689,6 @@
             const inDateObj = new Date(checkinDate);
             const outDateObj = new Date(checkoutDate);
 
-            // Day shift: 6am to 6pm
             if (inH >= 6 && inH < 18) {
                 if (outDateObj.getTime() === inDateObj.getTime()) {
                     return 'Day Shift';
@@ -685,7 +696,6 @@
                     return 'Night Shift';
                 }
             }
-            // Night shift: 6pm to 6am next day
             if (inH >= 18 || inH < 6) {
                 return 'Night Shift';
             }
@@ -715,7 +725,6 @@
             if (tab === 'reportsTab') displayReports();
         }
 
-        // ADMIN LOGIN
         function adminLogin() {
             const pass = document.getElementById('adminPass').value;
             const storedPass = getStoredAdminPass();
@@ -795,7 +804,6 @@
                     shiftInfo = `${shiftType} (${shiftCat})`;
                     workingHours = hoursWorked;
                 }
-
                 html += `
                     <div class="emp-card">
                         <div class="emp-id">${e.id}</div>
@@ -962,7 +970,7 @@
                 alert('No records');
                 return;
             }
-            let html = '<html><head><style>body{font-family:Arial}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#208090;color:white}</style></head><body><h1>Attendance Report</h1><p>Generated: ' + new Date().toLocaleString() + '</p><table><thead><tr><th>EmpID</th><th>Name</th><th>Shift</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Working Hours</th></tr></thead><tbody>';
+            let html = '<html><head><style>body{font-family:Arial}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#208090;color:white}</style></head><body><h1>Attendance Report</h1><p>Generated: ' + new Date().toLocaleString() + '</p><table><thead><tr><th>EmpID</th><th>Name</th><th>Department</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Shift Type</th><th>Category</th><th>Hours</th></tr></thead><tbody>';
             attendance.forEach(a => {
                 let shiftType = 'N/A', shiftCat = 'N/A', hours = 'N/A';
                 if (a.checkout_time) {
@@ -979,7 +987,6 @@
             w.print();
         }
 
-        // EMPLOYEE LOGIN
         function employeeLogin() {
             const id = document.getElementById('empId').value.trim().toUpperCase();
             const { employees } = loadData();
@@ -1006,7 +1013,6 @@
             const today = new Date().toISOString().split('T')[0];
             const todayAtt = attendance.find(a => a.empId === currentUser.id && a.date === today);
 
-            // Status
             let statusHtml = '';
             if (todayAtt) {
                 if (todayAtt.checkout_time) {
@@ -1019,7 +1025,6 @@
             }
             document.getElementById('empAttendanceStatus').innerHTML = statusHtml;
 
-            // Mark Out button
             const markOutBtn = document.getElementById('markOutBtn');
             if (todayAtt && !todayAtt.checkout_time) {
                 markOutBtn.style.display = 'inline-block';
@@ -1027,7 +1032,6 @@
                 markOutBtn.style.display = 'none';
             }
 
-            // Records
             const myAtt = attendance.filter(a => a.empId === currentUser.id);
             if (myAtt.length === 0) {
                 document.getElementById('empMyRecords').innerHTML = '<p style="color: var(--text-light);">No records yet</p>';
@@ -1047,7 +1051,6 @@
                 tbl += '</tbody></table>';
                 document.getElementById('empMyRecords').innerHTML = tbl;
 
-                // Today's working hours
                 if (todayAtt && todayAtt.checkout_time) {
                     const todayHours = calcWorkingHours(todayAtt.time, todayAtt.checkout_time);
                     const hours = parseInt(todayHours);
@@ -1126,9 +1129,7 @@
 
             if (document.getElementById('empCapLocation').checked) {
                 navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        saveEmpMarkOut(todayAtt, checkoutTime);
-                    },
+                    pos => saveEmpMarkOut(todayAtt, checkoutTime),
                     () => saveEmpMarkOut(todayAtt, checkoutTime),
                     { enableHighAccuracy: true, timeout: 15000 }
                 );
@@ -1139,7 +1140,6 @@
 
         function saveEmpMarkOut(att, checkoutTime) {
             const { employees, attendance } = loadData();
-            // Find the exact record by multiple fields since reference might not work
             const idx = attendance.findIndex(a => 
                 a.empId === att.empId && 
                 a.date === att.date && 
@@ -1151,10 +1151,7 @@
                 saveData(employees, attendance);
                 const hours = calcWorkingHours(att.time, checkoutTime);
                 showMsg(`✓ Shift Out marked! Working Hours: ${hours}`, 'success', document.getElementById('empMsg'));
-                // Force refresh after save
                 setTimeout(() => refreshEmployeeUI(), 100);
-            } else {
-                showMsg('❌ Error: Could not find today\'s check-in record', 'error', document.getElementById('empMsg'));
             }
         }
 
