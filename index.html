@@ -286,6 +286,19 @@
             color: var(--error);
         }
 
+        .qr-display {
+            text-align: center;
+            margin: 15px 0;
+            padding: 12px;
+            background: rgba(252, 252, 249, 0.8);
+            border-radius: 6px;
+        }
+
+        .qr-display canvas {
+            max-width: 130px;
+            height: auto;
+        }
+
         .emp-actions {
             display: flex;
             gap: 8px;
@@ -608,8 +621,8 @@
     </div>
 
     <script>
-        // ⭐ GOOGLE APPS SCRIPT URL - PASTE YOUR DEPLOYMENT URL HERE (Line 1017)
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/https://docs.google.com/spreadsheets/d/1qHW4_qMRMOuzEMra0kM-g4zhcLN1swiAfCfzXpetPsA/edit?gid=1865407831#gid=1865407831/usercopy';
+        // ⭐ Google Apps Script Web App URL
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/a/macros/hotelgalaxyn.in/s/AKfycbzDMEmUGdskcmt0E7xt4F9QK4QTimdcgfJmJekJN0_q4tPVj9M7nouOb1cWHAJ9gHU1/exec';
 
         let ADMIN_PASS = localStorage.getItem('adminPassword') || 'admin123';
         let currentUser = null;
@@ -621,21 +634,22 @@
             };
         }
 
+        // ✅ Save + Sync to Google Sheet
         function saveData(emp, att) {
             localStorage.setItem('employees', JSON.stringify(emp));
             localStorage.setItem('attendance', JSON.stringify(att));
             syncToGoogleSheet(att);
         }
 
-        // ✅ GOOGLE SHEET SYNC FUNCTION
+        // ✅ Sync latest attendance row to Google Sheet
         function syncToGoogleSheet(attendance) {
-            if (GOOGLE_APPS_SCRIPT_URL.includes('AKfycbx...')) {
-                console.warn('⚠️ Google Apps Script URL not configured');
+            if (!GOOGLE_APPS_SCRIPT_URL) {
+                console.warn('Google Apps Script URL not configured');
                 return;
             }
 
             const recentAttendance = attendance.slice(-1);
-            
+
             fetch(GOOGLE_APPS_SCRIPT_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -643,9 +657,9 @@
                     attendance: recentAttendance
                 })
             })
-            .then(r => r.json())
-            .then(d => console.log('✓ Synced:', d))
-            .catch(e => console.error('❌ Error:', e));
+                .then(r => r.json())
+                .then(d => console.log('Synced:', d))
+                .catch(e => console.error('Sync error:', e));
         }
 
         function getStoredAdminPass() {
@@ -725,6 +739,7 @@
             if (tab === 'reportsTab') displayReports();
         }
 
+        // ADMIN LOGIN
         function adminLogin() {
             const pass = document.getElementById('adminPass').value;
             const storedPass = getStoredAdminPass();
@@ -793,7 +808,7 @@
             employees.forEach(e => {
                 const todayAtt = attendance.find(a => a.empId === e.id && a.date === new Date().toISOString().split('T')[0]);
                 const status = todayAtt ? (todayAtt.checkout_time ? '✓ Completed' : '⏱️ In Progress') : '❌ Absent';
-                const statusClass = todayAtt ? (todayAtt.checkout_time ? 'status-present' : 'status-present') : 'status-absent';
+                const statusClass = todayAtt ? 'status-present' : 'status-absent';
                 let shiftInfo = 'N/A';
                 let workingHours = 'N/A';
                 if (todayAtt && todayAtt.checkout_time) {
@@ -970,7 +985,7 @@
                 alert('No records');
                 return;
             }
-            let html = '<html><head><style>body{font-family:Arial}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#208090;color:white}</style></head><body><h1>Attendance Report</h1><p>Generated: ' + new Date().toLocaleString() + '</p><table><thead><tr><th>EmpID</th><th>Name</th><th>Department</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Shift Type</th><th>Category</th><th>Hours</th></tr></thead><tbody>';
+            let html = '<html><head><style>body{font-family:Arial}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#208090;color:white}</style></head><body><h1>Attendance Report</h1><p>Generated: ' + new Date().toLocaleString() + '</p><table><thead><tr><th>EmpID</th><th>Name</th><th>Shift</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Working Hours</th></tr></thead><tbody>';
             attendance.forEach(a => {
                 let shiftType = 'N/A', shiftCat = 'N/A', hours = 'N/A';
                 if (a.checkout_time) {
@@ -987,6 +1002,7 @@
             w.print();
         }
 
+        // EMPLOYEE LOGIN
         function employeeLogin() {
             const id = document.getElementById('empId').value.trim().toUpperCase();
             const { employees } = loadData();
@@ -1129,7 +1145,9 @@
 
             if (document.getElementById('empCapLocation').checked) {
                 navigator.geolocation.getCurrentPosition(
-                    pos => saveEmpMarkOut(todayAtt, checkoutTime),
+                    pos => {
+                        saveEmpMarkOut(todayAtt, checkoutTime);
+                    },
                     () => saveEmpMarkOut(todayAtt, checkoutTime),
                     { enableHighAccuracy: true, timeout: 15000 }
                 );
@@ -1140,9 +1158,9 @@
 
         function saveEmpMarkOut(att, checkoutTime) {
             const { employees, attendance } = loadData();
-            const idx = attendance.findIndex(a => 
-                a.empId === att.empId && 
-                a.date === att.date && 
+            const idx = attendance.findIndex(a =>
+                a.empId === att.empId &&
+                a.date === att.date &&
                 a.time === att.time &&
                 !a.checkout_time
             );
@@ -1152,6 +1170,8 @@
                 const hours = calcWorkingHours(att.time, checkoutTime);
                 showMsg(`✓ Shift Out marked! Working Hours: ${hours}`, 'success', document.getElementById('empMsg'));
                 setTimeout(() => refreshEmployeeUI(), 100);
+            } else {
+                showMsg('❌ Error: Could not find today\'s check-in record', 'error', document.getElementById('empMsg'));
             }
         }
 
