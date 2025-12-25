@@ -649,19 +649,40 @@
             }
 
             try {
-                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'getAllData'
-                    })
-                });
-                const data = await response.json();
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=getEmployees');
+                const empData = await response.json();
                 
-                if (data.employees && data.attendance) {
-                    localStorage.setItem('employees', JSON.stringify(data.employees));
-                    localStorage.setItem('attendance', JSON.stringify(data.attendance));
-                    console.log('✓ Data synced from Google Sheet');
+                const attResponse = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=getAttendance');
+                const attData = await attResponse.json();
+                
+                if (empData.success && empData.employees) {
+                    const employees = empData.employees.map(e => ({ 
+                        id: e[0], 
+                        name: e[1], 
+                        dept: e[2] 
+                    }));
+                    localStorage.setItem('employees', JSON.stringify(employees));
                 }
+                
+                if (attData.success && attData.records) {
+                    const attendance = attData.records.map(a => ({
+                        empId: a.empId,
+                        name: a.name,
+                        dept: a.dept,
+                        date: a.date,
+                        time: a.checkin,
+                        checkout_time: a.checkout,
+                        shiftType: a.shiftType,
+                        category: a.category,
+                        workingHours: a.workingHours,
+                        checkoutDate: a.date,
+                        loc: 'N/A',
+                        ts: new Date().toISOString()
+                    }));
+                    localStorage.setItem('attendance', JSON.stringify(attendance));
+                }
+                
+                console.log('✓ Data synced from Google Sheet');
             } catch (e) {
                 console.error('❌ Error syncing from Google Sheet:', e);
             }
