@@ -604,24 +604,29 @@
     }
 
     function clearAllAttendance() {
-        if (!confirm('Clear all attendance records from Google Sheet?')) return;
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'clearAttendance' })
-        })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                const { employees } = loadData();
-                saveData(employees, []);
-                displayReports();
-                alert('All attendance cleared.');
-            } else {
-                alert('Error clearing records: ' + (d.error || 'Unknown'));
-            }
-        })
-        .catch(e => alert('Error: ' + e.message));
-    }
+    if (!confirm('Clear all attendance records from Google Sheet?')) return;
+
+    fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'clearAttendance' })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            const { employees } = loadData();
+            // local attendance bhi clear
+            saveData(employees, []);
+            // UI refresh
+            displayReports();
+            refreshEmployeeUI && currentUser && currentUser.type === 'employee' && refreshEmployeeUI();
+            alert('All attendance cleared.');
+        } else {
+            alert('Error clearing records: ' + (d.error || 'Unknown'));
+        }
+    })
+    .catch(e => alert('Error: ' + e.message));
+}
+
 
     // EMPLOYEE LOGIN
     function employeeLogin() {
