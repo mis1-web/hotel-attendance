@@ -603,28 +603,23 @@
         w.print();
     }
 
-    function clearAllAttendance() {
-    if (!confirm('Clear all attendance records from Google Sheet?')) return;
+function clearAllAttendance() {
+    if (!confirm('Sirf iss browser ki attendance clear hogi. Continue?')) return;
 
-    fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'clearAttendance' })
-    })
-    .then(r => r.json())
-    .then(d => {
-        if (d.success) {
-            const { employees } = loadData();
-            // local attendance bhi clear
-            saveData(employees, []);
-            // UI refresh
-            displayReports();
-            refreshEmployeeUI && currentUser && currentUser.type === 'employee' && refreshEmployeeUI();
-            alert('All attendance cleared.');
-        } else {
-            alert('Error clearing records: ' + (d.error || 'Unknown'));
-        }
-    })
-    .catch(e => alert('Error: ' + e.message));
+    // sirf localStorage ka attendance clear
+    const { employees } = loadData();
+    saveData(employees, []);   // employees same, attendance empty
+
+    // UI refresh
+    displayReports();
+
+    // agar employee login hai to uska view bhi refresh
+    if (currentUser && currentUser.type === 'employee') {
+        refreshEmployeeUI();
+        document.getElementById('empMsg').innerHTML = '';
+    }
+
+    alert('Local attendance cleared from this browser.');
 }
 
 
