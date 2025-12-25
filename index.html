@@ -630,7 +630,7 @@
 
     <script>
         // ⭐ GOOGLE APPS SCRIPT URL - PASTE YOUR DEPLOYMENT URL HERE
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKARQEAvWf6l1H_In9FxrOVI34g54KgmSy4HDdvMPyCha-TyfZMO_0e4yHyPRrHSWD/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx.../usercopy';
 
         let ADMIN_PASS = localStorage.getItem('adminPassword') || 'admin123';
         let currentUser = null;
@@ -642,13 +642,55 @@
             };
         }
 
+        async function syncFromGoogleSheet() {
+            if (GOOGLE_APPS_SCRIPT_URL.includes('AKfycbx...')) {
+                console.warn('⚠️ Google Apps Script URL not configured');
+                return;
+            }
+
+            try {
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'getAllData'
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.employees && data.attendance) {
+                    localStorage.setItem('employees', JSON.stringify(data.employees));
+                    localStorage.setItem('attendance', JSON.stringify(data.attendance));
+                    console.log('✓ Data synced from Google Sheet');
+                }
+            } catch (e) {
+                console.error('❌ Error syncing from Google Sheet:', e);
+            }
+        }
+
         function saveData(emp, att) {
             localStorage.setItem('employees', JSON.stringify(emp));
             localStorage.setItem('attendance', JSON.stringify(att));
-            syncToGoogleSheet(att);
         }
 
-        function syncToGoogleSheet(attendance) {
+        function syncEmployeeToSheet(employees) {
+            if (GOOGLE_APPS_SCRIPT_URL.includes('AKfycbx...')) {
+                console.warn('⚠️ Google Apps Script URL not configured');
+                return;
+            }
+
+            fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'syncEmployees',
+                    employees: employees
+                })
+            })
+            .then(r => r.json())
+            .then(d => console.log('✓ Employees Synced:', d))
+            .catch(e => console.error('❌ Error:', e));
+        }
+
+        function syncAttendanceToSheet(attendance) {
             if (GOOGLE_APPS_SCRIPT_URL.includes('AKfycbx...')) {
                 console.warn('⚠️ Google Apps Script URL not configured');
                 return;
@@ -664,7 +706,7 @@
                 })
             })
             .then(r => r.json())
-            .then(d => console.log('✓ Synced:', d))
+            .then(d => console.log('✓ Attendance Synced:', d))
             .catch(e => console.error('❌ Error:', e));
         }
 
@@ -745,7 +787,7 @@
             if (tab === 'reportsTab') displayReports();
         }
 
-        function adminLogin() {
+        async function adminLogin() {
             const pass = document.getElementById('adminPass').value;
             const storedPass = getStoredAdminPass();
             if (pass !== storedPass) {
@@ -753,6 +795,10 @@
                 document.getElementById('adminPass').value = '';
                 return;
             }
+            
+            // Sync from Google Sheet before showing dashboard
+            await syncFromGoogleSheet();
+            
             currentUser = { type: 'admin' };
             document.getElementById('adminMarkDate').valueAsDate = new Date();
             document.getElementById('adminPass').value = '';
@@ -863,7 +909,10 @@
             const { employees, attendance } = loadData();
             const id = genEmpId();
             employees.push({ id, name, dept });
-            saveData(employees, attendance);
+            
+            localStorage.setItem('employees', JSON.stringify(employees));
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+            syncEmployeeToSheet(employees);
 
             document.getElementById('newEmpName').value = '';
             document.getElementById('newEmpDept').value = '';
@@ -873,7 +922,7 @@
         }
 
         function editEmp(id) {
-            const { employees } = loadData();
+            const { employees, attendance } = loadData();
             const emp = employees.find(e => e.id === id);
             if (!emp) return;
 
@@ -897,8 +946,9 @@
             if (empIdx !== -1) {
                 employees[empIdx].name = newName.trim();
                 employees[empIdx].dept = newDept;
-                const { attendance } = loadData();
-                saveData(employees, attendance);
+                localStorage.setItem('employees', JSON.stringify(employees));
+                localStorage.setItem('attendance', JSON.stringify(attendance));
+                syncEmployeeToSheet(employees);
                 refreshEmpList();
                 alert('✓ Employee updated!');
             }
@@ -909,7 +959,9 @@
             let { employees, attendance } = loadData();
             employees = employees.filter(e => e.id !== id);
             attendance = attendance.filter(a => a.empId !== id);
-            saveData(employees, attendance);
+            localStorage.setItem('employees', JSON.stringify(employees));
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+            syncEmployeeToSheet(employees);
             refreshEmpList();
         }
 
@@ -931,7 +983,9 @@
                 empId, name: emp.name, dept: emp.dept,
                 date, time, checkout_time: null, checkoutDate: null, loc: 'N/A', ts: new Date().toISOString()
             });
-            saveData(employees, attendance);
+            localStorage.setItem('employees', JSON.stringify(employees));
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+            syncAttendanceToSheet(attendance);
 
             showMsg('✓ Attendance marked!', 'success', document.getElementById('adminMarkMsg'));
             refreshAdminUI();
@@ -1018,7 +1072,10 @@
             setTimeout(() => displayReports(), 500);
         }
 
-        function employeeLogin() {
+        async function employeeLogin() {
+            // Sync from Google Sheet before checking employee
+            await syncFromGoogleSheet();
+            
             const id = document.getElementById('empId').value.trim().toUpperCase();
             const { employees } = loadData();
             const emp = employees.find(e => e.id.toUpperCase() === id);
@@ -1135,7 +1192,9 @@
                 empId: currentUser.id, name: currentUser.name, dept: currentUser.dept,
                 date, time, checkout_time: null, checkoutDate: null, loc, ts: new Date().toISOString()
             });
-            saveData(employees, attendance);
+            localStorage.setItem('employees', JSON.stringify(employees));
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+            syncAttendanceToSheet(attendance);
             showMsg('✓ Shift In marked! Time: ' + time, 'success', document.getElementById('empMsg'));
             refreshEmployeeUI();
         }
@@ -1179,7 +1238,9 @@
             );
             if (idx !== -1) {
                 attendance[idx].checkout_time = checkoutTime;
-                saveData(employees, attendance);
+                localStorage.setItem('employees', JSON.stringify(employees));
+                localStorage.setItem('attendance', JSON.stringify(attendance));
+                syncAttendanceToSheet(attendance);
                 const hours = calcWorkingHours(att.time, checkoutTime);
                 showMsg(`✓ Shift Out marked! Working Hours: ${hours}`, 'success', document.getElementById('empMsg'));
                 setTimeout(() => refreshEmployeeUI(), 100);
@@ -1210,6 +1271,9 @@
             const params = new URLSearchParams(window.location.search);
             const qrEmp = params.get('empId');
             if (qrEmp) document.getElementById('empId').value = qrEmp;
+            
+            // Sync from Google Sheet on page load
+            syncFromGoogleSheet();
         });
     </script>
 </body>
