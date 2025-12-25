@@ -649,42 +649,50 @@
             }
 
             try {
-                const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=getEmployees');
-                const empData = await response.json();
+                // Fetch employees
+                const empResponse = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=getEmployees');
+                const empData = await empResponse.json();
                 
+                // Fetch attendance
                 const attResponse = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=getAttendance');
                 const attData = await attResponse.json();
                 
-                if (empData.success && empData.employees) {
-                    const employees = empData.employees.map(e => ({ 
-                        id: e[0], 
-                        name: e[1], 
-                        dept: e[2] 
+                console.log('📊 Employees:', empData);
+                console.log('📋 Attendance:', attData);
+                
+                // Sync employees
+                if (empData.success && empData.employees && Array.isArray(empData.employees)) {
+                    const employees = empData.employees.map(e => ({
+                        id: e[0] ? String(e[0]).trim() : '',
+                        name: e[1] ? String(e[1]).trim() : '',
+                        dept: e[2] ? String(e[2]).trim() : ''
                     }));
                     localStorage.setItem('employees', JSON.stringify(employees));
+                    console.log('✓ Employees synced:', employees);
                 }
                 
-                if (attData.success && attData.records) {
+                // Sync attendance
+                if (attData.success && attData.records && Array.isArray(attData.records)) {
                     const attendance = attData.records.map(a => ({
-                        empId: a.empId,
-                        name: a.name,
-                        dept: a.dept,
-                        date: a.date,
-                        time: a.checkin,
-                        checkout_time: a.checkout,
-                        shiftType: a.shiftType,
-                        category: a.category,
-                        workingHours: a.workingHours,
-                        checkoutDate: a.date,
+                        empId: a.empId ? String(a.empId).trim() : '',
+                        name: a.name ? String(a.name).trim() : '',
+                        dept: a.dept ? String(a.dept).trim() : '',
+                        date: a.date ? String(a.date).trim() : '',
+                        time: a.checkin ? String(a.checkin).trim() : '',
+                        checkout_time: a.checkout ? String(a.checkout).trim() : '',
+                        shiftType: a.shiftType || '',
+                        category: a.category || '',
+                        workingHours: a.workingHours || '',
+                        checkoutDate: a.date || '',
                         loc: 'N/A',
                         ts: new Date().toISOString()
                     }));
                     localStorage.setItem('attendance', JSON.stringify(attendance));
+                    console.log('✓ Attendance synced:', attendance);
                 }
                 
-                console.log('✓ Data synced from Google Sheet');
             } catch (e) {
-                console.error('❌ Error syncing from Google Sheet:', e);
+                console.error('❌ Sync error:', e);
             }
         }
 
